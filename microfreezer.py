@@ -216,8 +216,9 @@ class MicroFreezer:
             import zlib
             print("compressing file...")
             bytes = zlib.compress(readFromFile(tar_file_name), 4)
-            # zlib 8 header bytes
-            bytes = b'\x1f\x8b\x08\x00\x00\x00\x00\x00' + bytes
+            crc = zlib.crc32(bytes) & 0xffffffff
+            # zlib 8 header bytes + data + crc 4 bytes
+            bytes = b'\x1f\x8b\x08\x00\x00\x00\x00\x00' + bytes + crc.to_bytes(length=4, byteorder='big')
             if writeToFileBytes("{}.gz".format(tar_file_name), bytes):
                 removeFile(tar_file_name)
         except Exception as e:
