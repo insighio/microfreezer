@@ -1,0 +1,12 @@
+{
+  "excludeList": [
+             "README",
+             "README.md",
+             "LICENSE",
+             ".git",
+             ".gitmodules",
+             "examples"],
+  "directoriesKeptInFrozen": ["lib"],
+  "enableZlibCompression": true,
+  "flashRootFolder": "/flash"
+}
