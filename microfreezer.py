@@ -111,40 +111,34 @@ class MicroFreezer:
         self.baseDestDirCustom = join(destDir, "Custom")
         self.baseDestDirBase = join(destDir, "Base")
         self.defrostFolderPath = join(self.baseDestDirCustom, "_todefrost")
+
+        logging.info("deleting old files from {}".format(self.baseDestDir))
         mkdir(self.baseDestDir)
         removeContents(self.baseDestDir, listdir(self.baseDestDir))
         mkdir(self.baseDestDirCustom)
         mkdir(self.baseDestDirBase)
         mkdir(self.defrostFolderPath)
 
+        logging.info("Copying new files to {}".format(self.baseDestDir))
         self.processFiles()
+        logging.info("Finalizing...")
         self.finalize()
+        logging.info("Operation completed successfully.")
 
     def run_package(self, sourceDir, destDir):
         self.baseSourceDir = sourceDir
         self.baseDestDir = destDir
 
-        logging.debug("deleting old files from {}".format(self.baseDestDir))
+        logging.info("deleting old files from {}".format(self.baseDestDir))
         mkdir(self.baseDestDir)
         removeContents(self.baseDestDir, listdir(self.baseDestDir))
 
-        logging.debug("Copying new files to {}".format(self.baseDestDir))
-        for f in listdir(self.baseSourceDir):
-            if f in self.excludeList:
-                logging.debug("ignoring file: {}".format(f))
-                continue
-            absoluteSourceDir = join(self.baseSourceDir, f)
-            absoluteDestDir = join(self.baseDestDir, f)
+        logging.info("Copying new files to {}".format(self.baseDestDir))
+        self.copyRecursive(self.baseSourceDir, self.baseDestDir, True)
 
-            if isfile(absoluteSourceDir):
-                logging.debug("File: " + str(absoluteSourceDir))
-                copyfile(absoluteSourceDir, absoluteDestDir)
-            elif f not in self.directoriesKeptInFrozen:
-                logging.debug("Dir:  " + str(absoluteSourceDir))
-                mkdir(absoluteDestDir)
-                self.copyRecursive(absoluteSourceDir, absoluteDestDir)
-
+        logging.info("Finalizing...")
         self.finalize_package()
+        logging.info("Operation completed successfully.")
 
     def convertFileToBase64(self, sourceFile, destFile):
         logging.debug("  [C]: " + str(sourceFile))
@@ -177,7 +171,7 @@ class MicroFreezer:
                 else:
                     self.processFiles(join(currentPath, f))
 
-    def copyRecursive(self, sourceDir, destDir):
+    def copyRecursive(self, sourceDir, destDir, ignoreFrozenDirectories=False):
         for f in listdir(sourceDir):
             if f in self.excludeList:
                 logging.debug("ignoring file: {}".format(f))
@@ -188,7 +182,7 @@ class MicroFreezer:
             if isfile(absoluteSourceDir):
                 logging.debug("file: " + str(absoluteSourceDir))
                 copyfile(absoluteSourceDir, absoluteDestDir)
-            else:
+            elif not ignoreFrozenDirectories or f not in self.directoriesKeptInFrozen:
                 logging.debug("dir:  " + str(absoluteSourceDir))
                 mkdir(absoluteDestDir)
                 self.copyRecursive(absoluteSourceDir, absoluteDestDir)
@@ -219,7 +213,7 @@ class MicroFreezer:
         main_file = "_apply_package.py"
         target_file = join(self.baseDestDir, main_file)
         fileContents = readFromFile(join("aux_files", main_file))
-        fileContents = fileContents.replace('flashRootFolder="/flash"', 'flashRootFolder="' + self.flashRootFolder + '"')
+        fileContents = fileContents.replace('flashRootFolder = "/flash"', 'flashRootFolder="' + self.flashRootFolder + '"')
         writeToFile(target_file, fileContents)
 
     def createTarFile(self, file_name, path):
@@ -237,19 +231,20 @@ class MicroFreezer:
 
         removeContents(path, to_delete)
 
-        try:
-            # try to compress file
-            import zlib
-            logging.debug("compressing file...")
-            bytes = zlib.compress(readFromFile(tar_file_name, True), 4)
-            crc = zlib.crc32(bytes) & 0xffffffff
-            # zlib 8 header bytes + data + crc 4 bytes
-            bytes = b'\x1f\x8b\x08\x00\x00\x00\x00\x00' + bytes + crc.to_bytes(length=4, byteorder='big')
-            if writeToFile("{}.gz".format(tar_file_name), bytes, True):
-                removeFile(tar_file_name)
-        except Exception as e:
-            logging.debug("Error comressing tar file {}.".format(tar_file_name))
-            traceback.print_exc()
+        if self.enableZlibCompression:
+            try:
+                # try to compress file
+                import zlib
+                logging.debug("compressing file...")
+                bytes = zlib.compress(readFromFile(tar_file_name, True), 4)
+                crc = zlib.crc32(bytes) & 0xffffffff
+                # zlib 8 header bytes + data + crc 4 bytes
+                bytes = b'\x1f\x8b\x08\x00\x00\x00\x00\x00' + bytes + crc.to_bytes(length=4, byteorder='big')
+                if writeToFile("{}.gz".format(tar_file_name), bytes, True):
+                    removeFile(tar_file_name)
+            except Exception as e:
+                logging.debug("Error comressing tar file {}.".format(tar_file_name))
+                traceback.print_exc()
         os.chdir(cwd)
 
 
