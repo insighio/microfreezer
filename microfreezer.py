@@ -39,9 +39,9 @@ def mkdir(dirPath):
         logging.debug("directory {} already exists?".format(dirPath))
 
 
-def readFromFile(source):
+def readFromFile(source, open_binary=False):
     try:
-        f = open(source, "rb")
+        f = open(source, "rb" if open_binary else "r")
         contents = f.read()
         f.close()
         logging.debug("file [{}] read finished.".format(source))
@@ -52,9 +52,9 @@ def readFromFile(source):
         return ""
 
 
-def writeToFileBytes(destination, content):
+def writeToFile(destination, content, open_binary=False):
     try:
-        out_file = open(destination, "wb")
+        out_file = open(destination, "wb" if open_binary else "w")
         out_file.write(content)
         out_file.close()
         logging.debug("file [{}] write finished.".format(destination))
@@ -63,17 +63,6 @@ def writeToFileBytes(destination, content):
         logging.debug("file [{}] write failed.".format(destination))
         traceback.print_exc()
     return False
-
-
-def writeToFile(destination, content):
-    try:
-        out_file = open(destination, "w")
-        out_file.write(content)
-        out_file.close()
-        logging.debug("file [{}] write finished.".format(destination))
-    except Exception as e:
-        logging.debug("file [{}] write failed.".format(destination))
-        traceback.print_exc()
 
 
 def removeFile(directoryPath):
@@ -113,6 +102,7 @@ class MicroFreezer:
         self.directoriesKeptInFrozen = self.config.get("directoriesKeptInFrozen", [])
         self.enableZlibCompression = self.config.get("enableZlibCompression", True)
         self.flashRootFolder = self.config.get("flashRootFolder", "/flash")
+        self.flashRootFolder = os.path.normpath(self.flashRootFolder)
 
     def run(self, sourceDir, destDir):
         self.convertedFileNumber = 0
@@ -158,7 +148,7 @@ class MicroFreezer:
 
     def convertFileToBase64(self, sourceFile, destFile):
         logging.debug("  [C]: " + str(sourceFile))
-        bytes = readFromFile(sourceFile)
+        bytes = readFromFile(sourceFile, True)
         if self.enableZlibCompression:
             import zlib
             bytes = zlib.compress(bytes, 4)
@@ -227,7 +217,10 @@ class MicroFreezer:
         self.createTarFile(folderMd5, self.baseDestDir)
 
         main_file = "_apply_package.py"
-        copyfile(join("aux_files", main_file), join(self.baseDestDir, main_file))
+        target_file = join(self.baseDestDir, main_file)
+        fileContents = readFromFile(join("aux_files", main_file))
+        fileContents = fileContents.replace('flashRootFolder="/flash"', 'flashRootFolder="' + self.flashRootFolder + '"')
+        writeToFile(target_file, fileContents)
 
     def createTarFile(self, file_name, path):
         import tarfile
@@ -248,11 +241,11 @@ class MicroFreezer:
             # try to compress file
             import zlib
             logging.debug("compressing file...")
-            bytes = zlib.compress(readFromFile(tar_file_name), 4)
+            bytes = zlib.compress(readFromFile(tar_file_name, True), 4)
             crc = zlib.crc32(bytes) & 0xffffffff
             # zlib 8 header bytes + data + crc 4 bytes
             bytes = b'\x1f\x8b\x08\x00\x00\x00\x00\x00' + bytes + crc.to_bytes(length=4, byteorder='big')
-            if writeToFileBytes("{}.gz".format(tar_file_name), bytes):
+            if writeToFile("{}.gz".format(tar_file_name), bytes, True):
                 removeFile(tar_file_name)
         except Exception as e:
             logging.debug("Error comressing tar file {}.".format(tar_file_name))

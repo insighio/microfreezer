@@ -171,15 +171,16 @@ def copyfileobj(src, dest, length=512):
 
 ###############################
 
+flashRootFolder="/flash"
 
 is_compressed = False
 package_file = None
-for f in uos.listdir("/flash"):
+for f in uos.listdir(flashRootFolder):
     if f.endswith(".tar"):
-        package_file = "/flash/" + f
+        package_file = flashRootFolder + "/" + f
         break
     if f.endswith(".tar.gz"):
-        package_file = "/flash/" + f
+        package_file = flashRootFolder + "/" + f
         is_compressed = True
         break
 
