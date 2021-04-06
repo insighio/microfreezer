@@ -38,7 +38,6 @@ class FileSection:
 
     def readinto(self, buf):
         if self.content_len == 0:
-            print("zero length readinto")
             return 0
         if len(buf) > self.content_len:
             buf = memoryview(buf)[:self.content_len]
@@ -152,11 +151,9 @@ def writeToFile(destination, content):
 # https://github.com/micropython/micropython-lib/blob/eae01bd4e4cd1b22d9ccfedbd6bf9d879f64d9bd/shutil/shutil.py#L11
 def copyfileobj(src, dest, length=512):
     if hasattr(src, "readinto"):
-        print("copyfileobj: readinto")
         buf = bytearray(length)
         while True:
             sz = src.readinto(buf)
-            print("copyfileobj: readinto: buffer: " + str(sz))
             if not sz:
                 break
             if sz == length:
@@ -165,10 +162,8 @@ def copyfileobj(src, dest, length=512):
                 b = memoryview(buf)[:sz]
                 dest.write(b)
     else:
-        print("copyfileobj: NOT readinto")
         while True:
             buf = src.read(length)
-            print("copyfileobj: simple buffer: " + str(sz))
             if not buf:
                 break
             dest.write(buf)
@@ -219,11 +214,9 @@ if package_file:
                 copyfileobj(f, open(i.name, "w"))
         if t:
             print("removing tar file...")
-            # uos.remove(package_file)
+            uos.remove(package_file)
 
-        print("defrosting...")
-        from _todefrost_pack import microwave
-        microwave.defrost("_todefrost_pack", delete_file_after_operation=True)
+        print("Operation completed.")
 
         print("about to reset...")
         import machine
