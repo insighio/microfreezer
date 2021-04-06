@@ -23,7 +23,7 @@ import logging
 import os
 from os import listdir
 from os.path import isfile, join
-from shutil import copyfile
+from shutil import copyfile, rmtree
 import binascii
 import traceback
 import hashlib
@@ -79,9 +79,9 @@ def writeToFile(destination, content):
 def removeFile(directoryPath):
     try:
         os.remove(directoryPath)
-        print("Removed file: {}".format(directoryPath))
+        logging.debug("Removed file: {}".format(directoryPath))
     except OSError as e:
-        print("remove file {} failed".format(directoryPath))
+        logging.error("remove file {} failed".format(directoryPath))
 
 
 # Create a single md5 sum for all files included in folders and subfolders of path
@@ -97,9 +97,17 @@ def md5folder(directoryPath, blocksize=65536):
     return hash.hexdigest()
 
 
+def removeContents(directoryBaseDir, directoryContents):
+    for file in directoryContents:
+        path = join(directoryBaseDir, file)
+        if isfile(path):
+            removeFile(path)
+        else:
+            rmtree(path)
+
+
 class MicroFreezer:
-    def __init__(self, do_package):
-        self.do_package = do_package
+    def __init__(self):
         self.config = Config()
         self.excludeList = self.config.get("excludeList", [])
         self.directoriesKeptInFrozen = self.config.get("directoriesKeptInFrozen", [])
@@ -110,23 +118,43 @@ class MicroFreezer:
         self.convertedFileNumber = 0
         self.baseSourceDir = sourceDir
         self.baseDestDir = destDir
-
-        if self.do_package:
-            self.baseDestDirCustom = destDir
-            self.baseDestDirBase = destDir
-            self.defrostFolderPath = join(destDir, "_todefrost_pack")
-        else:
-            self.baseDestDirCustom = join(destDir, "Custom")
-            self.baseDestDirBase = join(destDir, "Base")
-            self.defrostFolderPath = join(self.baseDestDirCustom, "_todefrost")
+        self.baseDestDirCustom = join(destDir, "Custom")
+        self.baseDestDirBase = join(destDir, "Base")
+        self.defrostFolderPath = join(self.baseDestDirCustom, "_todefrost")
         mkdir(self.baseDestDir)
-        mkdir(self.defrostFolderPath)
+        removeContents(self.baseDestDir, listdir(self.baseDestDir))
         mkdir(self.baseDestDirCustom)
         mkdir(self.baseDestDirBase)
         mkdir(self.defrostFolderPath)
 
         self.processFiles()
         self.finalize()
+
+    def run_package(self, sourceDir, destDir):
+        self.baseSourceDir = sourceDir
+        self.baseDestDir = destDir
+
+        logging.debug("deleting old files from {}".format(self.baseDestDir))
+        mkdir(self.baseDestDir)
+        removeContents(self.baseDestDir, listdir(self.baseDestDir))
+
+        logging.debug("Copying new files to {}".format(self.baseDestDir))
+        for f in listdir(self.baseSourceDir):
+            if f in self.excludeList:
+                logging.debug("ignoring file: {}".format(f))
+                continue
+            absoluteSourceDir = join(self.baseSourceDir, f)
+            absoluteDestDir = join(self.baseDestDir, f)
+
+            if isfile(absoluteSourceDir):
+                logging.debug("File: " + str(absoluteSourceDir))
+                copyfile(absoluteSourceDir, absoluteDestDir)
+            elif f not in self.directoriesKeptInFrozen:
+                logging.debug("Dir:  " + str(absoluteSourceDir))
+                mkdir(absoluteDestDir)
+                self.copyRecursive(absoluteSourceDir, absoluteDestDir)
+
+        self.finalize_package()
 
     def convertFileToBase64(self, sourceFile, destFile):
         logging.debug("  [C]: " + str(sourceFile))
@@ -155,9 +183,7 @@ class MicroFreezer:
                 logging.debug("Dir:  " + str(absoluteSourceDir))
 
                 if f in self.directoriesKeptInFrozen:
-                    # Frozen folders are ignored during OTA package creation
-                    if not self.do_package:
-                        self.copyRecursive(absoluteSourceDir, self.baseDestDirCustom)
+                    self.copyRecursive(absoluteSourceDir, self.baseDestDirCustom)
                 else:
                     self.processFiles(join(currentPath, f))
 
@@ -190,31 +216,38 @@ class MicroFreezer:
         # add call to _main that detects package changes and calls defrosting after
         # a firmware flash
         main_file = "_main.py"
-        if self.do_package:
-            main_file = "_apply_package.py"
-
         copyfile(join("aux_files", main_file), join(self.baseDestDirBase, main_file))
 
-        if self.do_package:
-            self.createTarFile(folderMd5)
+    def finalize_package(self):
+        # create md5sum file for package identification
+        folderMd5 = md5folder(self.baseDestDir)
+        contents = 'md5sum="{}"'.format(folderMd5)
+        writeToFile(join(self.baseDestDir, "package_md5sum.py"), contents)
 
-    def createTarFile(self, md5):
+        self.createTarFile(folderMd5, self.baseDestDir)
+
+        main_file = "_apply_package.py"
+        copyfile(join("aux_files", main_file), join(self.baseDestDir, main_file))
+
+    def createTarFile(self, file_name, path):
         import tarfile
-        os.chdir(self.baseDestDir)
-        tar_file_name = "{}.tar".format(md5)
+        cwd = os.getcwd()
+        os.chdir(path)
+        tar_file_name = "{}.tar".format(file_name)
+        files_to_include_in_tar = listdir(path)
         tar = tarfile.open(tar_file_name, "w")
-        tar.add("_todefrost_pack")
+        to_delete = []
+        for f in files_to_include_in_tar:
+            tar.add(f)
+            to_delete.append(f)
         tar.close()
-        import shutil
-        try:
-            shutil.rmtree(self.defrostFolderPath)
-        except OSError as e:
-            print("Error: %s : %s" % (dir_path, e.strerror))
+
+        removeContents(path, to_delete)
 
         try:
             # try to compress file
             import zlib
-            print("compressing file...")
+            logging.debug("compressing file...")
             bytes = zlib.compress(readFromFile(tar_file_name), 4)
             crc = zlib.crc32(bytes) & 0xffffffff
             # zlib 8 header bytes + data + crc 4 bytes
@@ -224,6 +257,7 @@ class MicroFreezer:
         except Exception as e:
             logging.debug("Error comressing tar file {}.".format(tar_file_name))
             traceback.print_exc()
+        os.chdir(cwd)
 
 
 if __name__ == '__main__':
@@ -236,14 +270,14 @@ if __name__ == '__main__':
         logging.error("    python3 microfreezer.py <path-to-project> <path-to-output-folder>")
         quit()
 
-    do_package = False
-    if "--ota-package" in argv:
-        do_package = True
-
     sourceDir = argv[-2]
     destDir = argv[-1]
 
     logging.debug("source: {}, destination: {}".format(sourceDir, destDir))
 
-    freezer = MicroFreezer(do_package)
-    freezer.run(sourceDir, destDir)
+    freezer = MicroFreezer()
+
+    if "--ota-package" in argv:
+        freezer.run_package(sourceDir, destDir)
+    else:
+        freezer.run(sourceDir, destDir)
