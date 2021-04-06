@@ -171,7 +171,8 @@ def copyfileobj(src, dest, length=512):
 
 ###############################
 
-flashRootFolder="/flash"
+
+flashRootFolder = "/flash"
 
 is_compressed = False
 package_file = None
@@ -207,7 +208,8 @@ if package_file:
         print("tar file opened: " + package_file)
 
         for i in t:
-            print(i)
+            if i.name != "././@PaxHeader":
+                print(i)
             if i.type == DIRTYPE:
                 mkdir(i.name)
             else:
