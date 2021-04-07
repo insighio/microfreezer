@@ -25,11 +25,11 @@ Consider having the following project folder that needs to be flashed into multi
 microfreezer provides an alternative way of packing these files into the firmware. First of, prepare the configuration file by defining the following keys:
 
 1. `directoriesKeptInFrozen`: first select which folders of the project will be added in the `frozen` modules to be used directly by the user code. (if not provided, no files will be kept in `frozen`)
-  * "lib" folder contents
+    * "lib" folder contents
 1. `excludeList`: select irrelevant files that should be ignored. (if not provided, all files will be included)
-  * "README.md", "README", "LICENSE", ".git" files
+    * "README.md", "README", "LICENSE", ".git" files
 1. `flashRootFolder`: the root folder where the user code is normally placed. (if not provided, `/flash` path will be used)
-  * "/flash" for Pycom devices, "/" for bare ESP32/ESP8266 devices.
+    * "/flash" for Pycom devices, "/" for bare ESP32/ESP8266 devices.
 1. `enableZlibCompression`: by default is enabled. kept for cases of zlib unavailability. Turning it off results to bigger packages.
 1. the rest of the files will be converted into a compressed format, packed into the `frozen` modules and will be ready to be exported to the user space "ex. /flash or / paths".
 
