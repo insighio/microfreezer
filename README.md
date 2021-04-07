@@ -2,7 +2,7 @@
 
 microfreezer is a handy tool providing an alternative update method for micropython-enabled microcontrollers, by packaging a project into either an update package or into the 'frozen' part of the firmware regardless the included file types.
 
-# freezing the unfreezable
+# Method 1: freezing the unfreezable
 
 Having the source code of the micropython firmware, any Python source code added in `esp32/frozen` will be compiled and added with the firmware. In the case of Pycom devices, that folder is at `pycom-micropython-sigfox/esp32/frozen` and includes multiple other folders with necessary code. The suggested folder for placing custom Python files is `pycom-micropython-sigfox/esp32/frozen/Custom/`. More info on this can be found here: https://docs.pycom.io/advance/frozen/
 
@@ -21,6 +21,8 @@ Consider having the following project folder that needs to be flashed into multi
 |- README
 |- LICENSE
 ```
+
+## prepare the configuration file
 
 microfreezer provides an alternative way of packing these files into the firmware. First of, prepare the configuration file by defining the following keys:
 
@@ -48,10 +50,12 @@ Putting these into a configuration file named `config.json`:
 }
 ```
 
+## run microfreezer
+
 Ready to run microfreezer. The `config.json` needs to be present at the same path as microfreezer. If not, default values will be used as indicated above.
 
 ```bash
-#python3 microfreezer <project-folder-path> <output-folder-path>
+#python3 microfreezer (-v: verbose output) <project-folder-path> <output-folder-path>
 python3 microfreezer ~/projects/my_new_project ~/projects/my_new_project_packed
 ```
 
@@ -88,6 +92,38 @@ During the boot of the device:
     * `DATA`: the contents of the file converted to Base64 and compressed with `zlib`.
   * `package_md5sum.py`: an md5sum of the all the base64 Python files in `_todefrost`
   * `microwave.py`: the script responsible of decompressing and converting the `DATA` of each base64 file and placing it to the destination folder defined by `PATH`
+
+# Method 2: Creating a simple update package with user code.
+
+Apart from embedding a project into the firmware, an alternative way would be to pack all files that do not belong to `frozen` modules into one packet, send it to the device and unpack it.
+
+## prepare the configuration file
+
+The configuration file is exactly the same as (Method 1). The only difference is that whatever files are found in the defined folder from `directoriesKeptInFrozen` are ignored.
+
+## run microfreezer
+
+Ready to run microfreezer. The `config.json` needs to be present at the same path as microfreezer. If not, default values will be used as indicated above.
+
+```bash
+#python3 microfreezer (-v: verbose output) <project-folder-path> <output-folder-path>
+python3 microfreezer --ota-package ~/projects/my_new_project ~/projects/my_new_project_packed
+```
+
+The output folder now contains 2 files:
+
+```
+|- _apply_package.py
+|- 1234567890abcdef1234567890abcdef.tar.gz
+```
+
+The `tar.gz` can be send to the required devices and by importing the `_apply_package.py` at the same folder as the package, it...applies the package :P
+
+## Notes on output files
+
+* `<md5>.tar.gz`: the zipped tar file that contains all required files and folders to be applied
+* `_apply_package.py`: searches for a `.tar` or `.tar.gz` file, decompresses it if needed, and untars the files at the using as base folder the `flashRootFolder` defined in the configuration file. 
+
 
 # Future work
 
