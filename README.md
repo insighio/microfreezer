@@ -2,6 +2,8 @@
 
 microfreezer is a handy tool providing an alternative update method for micropython-enabled microcontrollers, by packaging a project into either an update package or into the 'frozen' part of the firmware regardless the included file types.
 
+![microfreezer-scheme-4](https://user-images.githubusercontent.com/550020/114547587-48178e80-9c67-11eb-8c41-c2050f63ca33.png)
+
 # Method 1: freezing the unfreezable
 
 Having the source code of the micropython firmware, any Python source code added in `esp32/frozen` will be compiled and added with the firmware. In the case of Pycom devices, that folder is at `pycom-micropython-sigfox/esp32/frozen` and includes multiple other folders with necessary code. The suggested folder for placing custom Python files is `pycom-micropython-sigfox/esp32/frozen/Custom/`. More info on this can be found here: https://docs.pycom.io/advance/frozen/
