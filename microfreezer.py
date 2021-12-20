@@ -101,15 +101,22 @@ class MicroFreezer:
         self.excludeList = self.config.get("excludeList", [])
         self.directoriesKeptInFrozen = self.config.get("directoriesKeptInFrozen", [])
         self.enableZlibCompression = self.config.get("enableZlibCompression", True)
-        self.flashRootFolder = self.config.get("flashRootFolder", "/flash")
+        self.targetESP32 = self.config.get("targetESP32", False)
+        self.targetPycom = self.config.get("targetPycom", True)
+        self.flashRootFolder = "/flash/" if self.targetPycom else "/"
         self.flashRootFolder = os.path.normpath(self.flashRootFolder)
+        logging.info("Selected flash root folder: " + self.flashRootFolder)
 
     def run(self, sourceDir, destDir):
         self.convertedFileNumber = 0
         self.baseSourceDir = sourceDir
         self.baseDestDir = destDir
-        self.baseDestDirCustom = join(destDir, "Custom")
-        self.baseDestDirBase = join(destDir, "Base")
+        if self.targetESP32:
+            self.baseDestDirCustom = destDir
+            self.baseDestDirBase = destDir
+        elif self.targetPycom:
+            self.baseDestDirCustom = join(destDir, "Custom")
+            self.baseDestDirBase = join(destDir, "Base")
         self.defrostFolderPath = join(self.baseDestDirCustom, "_todefrost")
 
         logging.info("deleting old files from {}".format(self.baseDestDir))
@@ -195,12 +202,18 @@ class MicroFreezer:
 
         # add microwave code responsible to defrost appropriate code upon pycom's first run after update
         microwave_file = "microwave.py"
-        copyfile(join("aux_files", microwave_file), join(self.defrostFolderPath, microwave_file))
+        target_file = join(self.defrostFolderPath, microwave_file)
+        fileContents = readFromFile(join("aux_files", microwave_file))
+        fileContents = fileContents.replace('/flash/package.md5', join(self.flashRootFolder, 'package.md5'))
+        writeToFile(target_file, fileContents)
 
         # add call to _main that detects package changes and calls defrosting after
         # a firmware flash
-        main_file = "_main.py"
-        copyfile(join("aux_files", main_file), join(self.baseDestDirBase, main_file))
+        main_file = "_append_to_boot.py"
+        target_file = join(self.baseDestDir, main_file)
+        fileContents = readFromFile(join("aux_files", main_file))
+        fileContents = fileContents.replace('/flash/package.md5', join(self.flashRootFolder, 'package.md5'))
+        writeToFile(target_file, fileContents)
 
     def finalize_package(self):
         # create md5sum file for package identification

@@ -8,5 +8,6 @@
              "examples"],
   "directoriesKeptInFrozen": ["lib"],
   "enableZlibCompression": true,
-  "flashRootFolder": "/flash"
+  "targetESP32": false,
+  "targetPycom": true
 }
