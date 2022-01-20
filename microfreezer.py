@@ -205,6 +205,11 @@ class MicroFreezer:
         target_file = join(self.defrostFolderPath, microwave_file)
         fileContents = readFromFile(join("aux_files", microwave_file))
         fileContents = fileContents.replace('/flash/package.md5', join(self.flashRootFolder, 'package.md5'))
+
+        # default: zlib enabled
+        if not self.enableZlibCompression:
+            fileContents = fileContents.replace('enableZlibCompression = True', 'enableZlibCompression = False')
+
         writeToFile(target_file, fileContents)
 
         # add call to _main that detects package changes and calls defrosting after

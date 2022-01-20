@@ -25,6 +25,9 @@ import uerrno
 import ubinascii
 
 
+enableZlibCompression = True
+
+
 def writeToFile(destination, content):
     try:
         out_file = open(destination, "w")
@@ -74,7 +77,10 @@ def defrost(defrost_module_name="_todefrost", delete_file_after_operation=False)
         try:
             x = __import__(name, globals(), locals(), ['PATH', 'DATA'])
             recursiveMkdir(x.PATH)
-            writeToFile(x.PATH, uzlib.decompress(ubinascii.a2b_base64(x.DATA)))
+            ascii_data = ubinascii.a2b_base64(x.DATA)
+            if enableZlibCompression:
+                ascii_data = uzlib.decompress(ascii_data)
+            writeToFile(x.PATH, ascii_data)
             del x
             sys.modules.pop(name)
             print("    File: " + name + ", success")
@@ -82,7 +88,6 @@ def defrost(defrost_module_name="_todefrost", delete_file_after_operation=False)
                 remove(file_name)
             file_index += 1
         except Exception as e:
-            # print("Processing file: " + name + ", failed")
             sys.print_exception(e)
             module_found = False
 
