@@ -28,13 +28,13 @@ Consider having the following project folder that needs to be flashed into multi
 
 microfreezer provides an alternative way of packing these files into the firmware. First of, prepare the configuration file by defining the following keys:
 
-1. `directoriesKeptInFrozen`: first select which folders of the project will be added in the `frozen` modules to be used directly by the user code. (if not provided, no files will be kept in `frozen`)
-    * "lib" folder contents
 1. `excludeList`: select irrelevant files that should be ignored. (if not provided, all files will be included)
     * "README.md", "README", "LICENSE", ".git" files
-1. `flashRootFolder`: the root folder where the user code is normally placed. (if not provided, `/flash` path will be used)
-    * "/flash" for Pycom devices, "/" for bare ESP32/ESP8266 devices.
+1. `directoriesKeptInFrozen`: first select which folders of the project will be added in the `frozen` modules to be used directly by the user code. (if not provided, no files will be kept in `frozen`)
+    * "lib" folder contents
 1. `enableZlibCompression`: by default is enabled. kept for cases of zlib unavailability. Turning it off results to bigger packages.
+1. `targetESP32`: flag to set the build configurations for ESP32 devices
+1. `targetPycom`: flag to set the build configurations for Pycom devices
 1. the rest of the files will be converted into a compressed format, packed into the `frozen` modules and will be ready to be exported to the user space "ex. /flash or / paths".
 
 Putting these into a configuration file named `config.json`:
@@ -48,7 +48,8 @@ Putting these into a configuration file named `config.json`:
              ".git"],
   "directoriesKeptInFrozen": ["lib"],
   "enableZlibCompression": true,
-  "flashRootFolder": "/flash"
+  "targetESP32": true,
+  "targetPycom": false
 }
 ```
 
@@ -57,8 +58,8 @@ Putting these into a configuration file named `config.json`:
 Ready to run microfreezer. The `config.json` needs to be present at the same path as microfreezer. If not, default values will be used as indicated above.
 
 ```bash
-#python3 microfreezer (-v: verbose output) <project-folder-path> <output-folder-path>
-python3 microfreezer ~/projects/my_new_project ~/projects/my_new_project_packed
+#python3 microfreezer.py (-v: verbose output) <project-folder-path> <output-folder-path>
+python3 microfreezer.py ~/projects/my_new_project ~/projects/my_new_project_packed
 ```
 
 The output is split into two folders `Base` and `Custom` based on the directory design of Pycom devices:
@@ -90,7 +91,7 @@ During the boot of the device:
 * `Custom/lib_a.py`: `lib_a` is a module that was part of the `directoriesKeptInFrozen`. This means that it will be globally available as a frozen module.
 * `Custom/_todefrost`: the folder contains 3 main file types
   * `base64_<id>.py`: Each such file is a Python source file with two variables:
-    * `PATH`: the path where it needs to be extracted which is a concatenation of `flashRootFolder` from the configuration file and the relative path of the file in the project.
+    * `PATH`: the path where it needs to be extracted which is a concatenation of target's root folder from the configuration file (targetESP32, targetPycom) and the relative path of the file in the project.
     * `DATA`: the contents of the file converted to Base64 and compressed with `zlib`.
   * `package_md5sum.py`: an md5sum of the all the base64 Python files in `_todefrost`
   * `microwave.py`: the script responsible of decompressing and converting the `DATA` of each base64 file and placing it to the destination folder defined by `PATH`
@@ -108,8 +109,8 @@ The configuration file is exactly the same as (Method 1). The only difference is
 Ready to run microfreezer. The `config.json` needs to be present at the same path as microfreezer. If not, default values will be used as indicated above.
 
 ```bash
-#python3 microfreezer (-v: verbose output) <project-folder-path> <output-folder-path>
-python3 microfreezer --ota-package ~/projects/my_new_project ~/projects/my_new_project_packed
+#python3 microfreezer.py (-v: verbose output) <project-folder-path> <output-folder-path>
+python3 microfreezer.py --ota-package ~/projects/my_new_project ~/projects/my_new_project_packed
 ```
 
 The output folder now contains 2 files:
@@ -124,10 +125,9 @@ The `tar.gz` can be send to the required devices and by importing the `_apply_pa
 ## Notes on output files
 
 * `<md5>.tar.gz`: the zipped tar file that contains all required files and folders to be applied
-* `_apply_package.py`: searches for a `.tar` or `.tar.gz` file, decompresses it if needed, and untars the files at the using as base folder the `flashRootFolder` defined in the configuration file. 
+* `_apply_package.py`: searches for a `.tar` or `.tar.gz` file, decompresses it if needed, and untars the files using as base folder defined by the target in the configuration file (targetESP32, targetPycom). 
 
 
 # Future work
 
 * auto-validation of package MD5 before or after decompression for package validity check
-* test and adapt code for ESP32 and ESP8266 (possibly needs to adapt `Base` and `Custom` folders when freezing)
