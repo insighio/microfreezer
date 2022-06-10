@@ -36,6 +36,7 @@ microfreezer provides an alternative way of packing these files into the firmwar
     * "/flash" for Pycom devices, "/" for bare ESP32/ESP8266 devices.
 1. `enableZlibCompression`: by default is enabled. kept for cases of zlib unavailability. Turning it off results to bigger packages.
 1. the rest of the files will be converted into a compressed format, packed into the `frozen` modules and will be ready to be exported to the user space "ex. /flash or / paths".
+1. `minify`: minify if possible the .py source files. requires _pip install python-minifier_
 
 Putting these into a configuration file named `config.json`:
 
@@ -49,7 +50,7 @@ Putting these into a configuration file named `config.json`:
   "directoriesKeptInFrozen": ["lib"],
   "enableZlibCompression": true,
   "flashRootFolder": "/flash",
-  "removeComments": false,
+  "minify": false,
   "targetESP32": true,
   "targetPycom": false  
 }

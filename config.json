@@ -5,10 +5,11 @@
              "LICENSE",
              ".git",
              ".gitmodules",
-             "examples"],
+             "examples",
+             "local_demos"],
   "directoriesKeptInFrozen": [],
   "enableZlibCompression": false,
   "targetESP32": true,
   "targetPycom": false,
-  "removeComments": true
+  "minify": true
 }

@@ -149,61 +149,42 @@ class MicroFreezer:
 
     # https://www.codingconception.com/python-examples/write-a-program-to-delete-comment-lines-from-a-file-in-python/
     def removeCommentsAndReplaceFile(self, sourceFile, destFile):
-        # reading the file
-        with open(sourceFile) as fp:
-            contents=fp.readlines()
+        import python_minifier
 
-        # initialize two counter to check mismatch between "(" and ")"
-        open_bracket_counter=0
-        close_bracket_counter=0
-
-        # whenever an element deleted from the list length of the list will be decreased
-        decreasing_counter=0
-
-        logging.debug("  #file: {}, lines: {}".format(sourceFile, len(contents)))
-
-        for number in range(len(contents)):
-
-            # checking if the line contains "#" or not
-            if "#" in contents[number-decreasing_counter]:
-
-                # delete the line if startswith "#"
-                if contents[number-decreasing_counter].startswith("#"):
-                    contents.remove(contents[number-decreasing_counter])
-                    decreasing_counter+=1
-
-                # delete the character after the "#"
-                else:
-                    newline=""
-                    for character in contents[number-decreasing_counter]:
-                        if character=="(":
-                            open_bracket_counter+=1
-                            newline+=character
-                        elif character==")":
-                            close_bracket_counter+=1
-                            newline+=character
-                        elif character=="#" and open_bracket_counter==close_bracket_counter:
-                            break
-                        else:
-                            newline+=character
-                    contents.remove(contents[number-decreasing_counter])
-                    contents.insert(number-decreasing_counter,newline)
-
-
-        # writing into a new file
+        with open(sourceFile) as f:
+            contents = python_minifier.minify(f.read(),
+                                                remove_annotations=True,
+                                                remove_pass=False,
+                                                remove_literal_statements=True,
+                                                combine_imports=True,
+                                                hoist_literals=True,
+                                                rename_locals=True,
+                                                preserve_locals=None,
+                                                rename_globals=False,
+                                                preserve_globals=None,
+                                                remove_object_base=False,
+                                                convert_posargs_to_args=False,
+                                                preserve_shebang=True)
         with open(destFile,"w") as fp:
-            fp.writelines(contents)
+             fp.writelines(contents)
 
     def convertFileToBase64(self, sourceFile, destFile):
         logging.debug("  [C]: " + str(sourceFile))
         tmp_file = None
-        if self.removeComments and sourceFile.endswith(".py"):
+        if self.removeComments and sourceFile.endswith(".py") and '/templ/' not in sourceFile:
             import uuid
             tmp_file = '/tmp/' + str(uuid.uuid1()) + ".py"
             self.removeCommentsAndReplaceFile(sourceFile, tmp_file)
             sourceFile = tmp_file
 
         bytes = readFromFile(sourceFile, True)
+
+        if self.removeComments and tmp_file is not None:
+            try:
+                import os
+                #os.remove(tmp_file)
+            except Exception as e:
+                logging.exception(e, "Error deleting file [{}]".format(tmp_file))
 
         if self.enableZlibCompression:
             import zlib
@@ -212,13 +193,6 @@ class MicroFreezer:
         self.convertedFileNumber += 1
         contents = 'PATH="{}"\nDATA={}'.format(join(self.flashRootFolder, destFile), binascii.b2a_base64(bytes))
         writeToFile(newFileName, contents)
-
-        if self.removeComments and tmp_file is not None:
-            try:
-                import os
-                os.remove(tmp_file)
-            except Exception as e:
-                logging.exception(e, "Error deleting file [{}]".format(tmp_file))
 
     def processFiles(self, currentPath=""):
         absoluteCurrentPath = join(self.baseSourceDir, currentPath)
