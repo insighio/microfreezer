@@ -30,7 +30,6 @@ import hashlib
 from functools import partial
 from aux_files.config import Config
 
-
 def mkdir(dirPath):
     try:
         logging.debug("Making directory: {}".format(dirPath))
@@ -101,6 +100,7 @@ class MicroFreezer:
         self.excludeList = self.config.get("excludeList", [])
         self.directoriesKeptInFrozen = self.config.get("directoriesKeptInFrozen", [])
         self.enableZlibCompression = self.config.get("enableZlibCompression", True)
+        self.removeComments = self.config.get("removeComments", False)
         self.targetESP32 = self.config.get("targetESP32", False)
         self.targetPycom = self.config.get("targetPycom", True)
         self.flashRootFolder = "/flash/" if self.targetPycom else "/"
@@ -147,9 +147,64 @@ class MicroFreezer:
         self.finalize_package()
         logging.info("Operation completed successfully.")
 
+    # https://www.codingconception.com/python-examples/write-a-program-to-delete-comment-lines-from-a-file-in-python/
+    def removeCommentsAndReplaceFile(self, sourceFile, destFile):
+        # reading the file
+        with open(sourceFile) as fp:
+            contents=fp.readlines()
+
+        # initialize two counter to check mismatch between "(" and ")"
+        open_bracket_counter=0
+        close_bracket_counter=0
+
+        # whenever an element deleted from the list length of the list will be decreased
+        decreasing_counter=0
+
+        logging.debug("  #file: {}, lines: {}".format(sourceFile, len(contents)))
+
+        for number in range(len(contents)):
+
+            # checking if the line contains "#" or not
+            if "#" in contents[number-decreasing_counter]:
+
+                # delete the line if startswith "#"
+                if contents[number-decreasing_counter].startswith("#"):
+                    contents.remove(contents[number-decreasing_counter])
+                    decreasing_counter+=1
+
+                # delete the character after the "#"
+                else:
+                    newline=""
+                    for character in contents[number-decreasing_counter]:
+                        if character=="(":
+                            open_bracket_counter+=1
+                            newline+=character
+                        elif character==")":
+                            close_bracket_counter+=1
+                            newline+=character
+                        elif character=="#" and open_bracket_counter==close_bracket_counter:
+                            break
+                        else:
+                            newline+=character
+                    contents.remove(contents[number-decreasing_counter])
+                    contents.insert(number-decreasing_counter,newline)
+
+
+        # writing into a new file
+        with open(destFile,"w") as fp:
+            fp.writelines(contents)
+
     def convertFileToBase64(self, sourceFile, destFile):
         logging.debug("  [C]: " + str(sourceFile))
+        tmp_file = None
+        if self.removeComments and sourceFile.endswith(".py"):
+            import uuid
+            tmp_file = '/tmp/' + str(uuid.uuid1()) + ".py"
+            self.removeCommentsAndReplaceFile(sourceFile, tmp_file)
+            sourceFile = tmp_file
+
         bytes = readFromFile(sourceFile, True)
+
         if self.enableZlibCompression:
             import zlib
             bytes = zlib.compress(bytes, 4)
@@ -157,6 +212,13 @@ class MicroFreezer:
         self.convertedFileNumber += 1
         contents = 'PATH="{}"\nDATA={}'.format(join(self.flashRootFolder, destFile), binascii.b2a_base64(bytes))
         writeToFile(newFileName, contents)
+
+        if self.removeComments and tmp_file is not None:
+            try:
+                import os
+                os.remove(tmp_file)
+            except Exception as e:
+                logging.exception(e, "Error deleting file [{}]".format(tmp_file))
 
     def processFiles(self, currentPath=""):
         absoluteCurrentPath = join(self.baseSourceDir, currentPath)
@@ -264,7 +326,6 @@ class MicroFreezer:
                 logging.debug("Error comressing tar file {}.".format(tar_file_name))
                 traceback.print_exc()
         os.chdir(cwd)
-
 
 if __name__ == '__main__':
     from sys import argv

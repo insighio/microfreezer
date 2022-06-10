@@ -6,8 +6,9 @@
              ".git",
              ".gitmodules",
              "examples"],
-  "directoriesKeptInFrozen": ["lib"],
-  "enableZlibCompression": true,
-  "targetESP32": false,
-  "targetPycom": true
+  "directoriesKeptInFrozen": [],
+  "enableZlibCompression": false,
+  "targetESP32": true,
+  "targetPycom": false,
+  "removeComments": true
 }

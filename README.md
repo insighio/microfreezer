@@ -48,7 +48,10 @@ Putting these into a configuration file named `config.json`:
              ".git"],
   "directoriesKeptInFrozen": ["lib"],
   "enableZlibCompression": true,
-  "flashRootFolder": "/flash"
+  "flashRootFolder": "/flash",
+  "removeComments": false,
+  "targetESP32": true,
+  "targetPycom": false  
 }
 ```
 
@@ -124,7 +127,7 @@ The `tar.gz` can be send to the required devices and by importing the `_apply_pa
 ## Notes on output files
 
 * `<md5>.tar.gz`: the zipped tar file that contains all required files and folders to be applied
-* `_apply_package.py`: searches for a `.tar` or `.tar.gz` file, decompresses it if needed, and untars the files at the using as base folder the `flashRootFolder` defined in the configuration file. 
+* `_apply_package.py`: searches for a `.tar` or `.tar.gz` file, decompresses it if needed, and untars the files at the using as base folder the `flashRootFolder` defined in the configuration file.
 
 
 # Future work
