@@ -100,7 +100,7 @@ class MicroFreezer:
         self.excludeList = self.config.get("excludeList", [])
         self.directoriesKeptInFrozen = self.config.get("directoriesKeptInFrozen", [])
         self.enableZlibCompression = self.config.get("enableZlibCompression", True)
-        self.removeComments = self.config.get("removeComments", False)
+        self.minify = self.config.get("minify", False)
         self.targetESP32 = self.config.get("targetESP32", False)
         self.targetPycom = self.config.get("targetPycom", True)
         self.flashRootFolder = "/flash/" if self.targetPycom else "/"
@@ -148,7 +148,7 @@ class MicroFreezer:
         logging.info("Operation completed successfully.")
 
     # https://www.codingconception.com/python-examples/write-a-program-to-delete-comment-lines-from-a-file-in-python/
-    def removeCommentsAndReplaceFile(self, sourceFile, destFile):
+    def minifyAndReplaceFile(self, sourceFile, destFile):
         import python_minifier
 
         with open(sourceFile) as f:
@@ -171,15 +171,15 @@ class MicroFreezer:
     def convertFileToBase64(self, sourceFile, destFile):
         logging.debug("  [C]: " + str(sourceFile))
         tmp_file = None
-        if self.removeComments and sourceFile.endswith(".py") and '/templ/' not in sourceFile:
+        if self.minify and sourceFile.endswith(".py") and '/templ/' not in sourceFile:
             import uuid
             tmp_file = '/tmp/' + str(uuid.uuid1()) + ".py"
-            self.removeCommentsAndReplaceFile(sourceFile, tmp_file)
+            self.minifyAndReplaceFile(sourceFile, tmp_file)
             sourceFile = tmp_file
 
         bytes = readFromFile(sourceFile, True)
 
-        if self.removeComments and tmp_file is not None:
+        if self.minify and tmp_file is not None:
             try:
                 import os
                 #os.remove(tmp_file)
