@@ -70,10 +70,12 @@ def defrost(defrost_module_name="_todefrost", delete_file_after_operation=False)
     file_index = 0
     module_found = True
     print("Starting defrosting...")
+    import gc
     while module_found:
         name = defrost_module_name + ".base64_" + str(file_index)
         file_name = "{}/base64_{}.py".format(defrost_module_name, str(file_index))
-        print("Processing file: " + name)
+        gc.collect()
+        print("Processing file: {}, free_mem: {}".format(name, gc.mem_free()))
         try:
             x = __import__(name, globals(), locals(), ['PATH', 'DATA'])
             recursiveMkdir(x.PATH)
