@@ -24,8 +24,8 @@ from os import path
 
 
 class Config():
-    def __init__(self):
-        self.config_file_name = 'config.json'
+    def __init__(self, config_file='config.json'):
+        self.config_file_name = config_file
         self.app_config = {}
         self.loadConfiguration()
 
@@ -42,15 +42,13 @@ class Config():
         with open(filename) as json_file:
             self.app_config = json.load(json_file)
 
-    def setupLogging(argv):
+    def setupLogging(is_verbose):
         logging_ready = False
         FORMATTER = "%(asctime)s: [%(levelname)s]: %(message)s"
-        for arg in argv:
-            if arg == '-v':
-                logging_ready = True
-                logging.basicConfig(format=FORMATTER, level=logging.DEBUG)
-                logging.debug("Debug logging: on")
 
-        if not logging_ready:
+        if is_verbose:
+            logging.basicConfig(format=FORMATTER, level=logging.DEBUG)
+            logging.debug("Debug logging: on")
+        else:
             logging.basicConfig(
                 format=FORMATTER, level=logging.INFO)

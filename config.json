@@ -11,5 +11,6 @@
   "enableZlibCompression": false,
   "targetESP32": true,
   "targetPycom": false,
-  "minify": true
+  "minify": true,
+  "minifyExcludeFolderList": []
 }

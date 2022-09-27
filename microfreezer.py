@@ -29,6 +29,7 @@ import traceback
 import hashlib
 from functools import partial
 from aux_files.config import Config
+import getopt, sys
 
 def mkdir(dirPath):
     try:
@@ -93,14 +94,21 @@ def removeContents(directoryBaseDir, directoryContents):
         else:
             rmtree(path)
 
+def isAnySubstringInString(substring_list, string):
+    for substr in substring_list:
+        if substr in string:
+            return True
+    return False
+
 
 class MicroFreezer:
-    def __init__(self):
-        self.config = Config()
+    def __init__(self, config_obj=None):
+        self.config = config_obj if config_obj is not None else Config()
         self.excludeList = self.config.get("excludeList", [])
         self.directoriesKeptInFrozen = self.config.get("directoriesKeptInFrozen", [])
         self.enableZlibCompression = self.config.get("enableZlibCompression", True)
         self.minify = self.config.get("minify", False)
+        self.minifyExcludeFolderList = self.config.get("minifyExcludeFolderList", [])
         self.targetESP32 = self.config.get("targetESP32", False)
         self.targetPycom = self.config.get("targetPycom", True)
         self.flashRootFolder = "/flash/" if self.targetPycom else "/"
@@ -223,8 +231,12 @@ class MicroFreezer:
             absoluteSourceDir = join(sourceDir, f)
             absoluteDestDir = join(destDir, f)
             if isfile(absoluteSourceDir):
-                logging.debug("file: " + str(absoluteSourceDir))
-                copyfile(absoluteSourceDir, absoluteDestDir)
+                if self.minify and absoluteSourceDir.endswith(".py") and not isAnySubstringInString(self.minifyExcludeFolderList, absoluteSourceDir):
+                    logging.debug("file [M]: " + str(absoluteSourceDir))
+                    self.minifyAndReplaceFile(absoluteSourceDir, absoluteDestDir)
+                else:
+                    logging.debug("file: " + str(absoluteSourceDir))
+                    copyfile(absoluteSourceDir, absoluteDestDir)
             elif not ignoreFrozenDirectories or f not in self.directoriesKeptInFrozen:
                 logging.debug("dir:  " + str(absoluteSourceDir))
                 mkdir(absoluteDestDir)
@@ -301,24 +313,75 @@ class MicroFreezer:
                 traceback.print_exc()
         os.chdir(cwd)
 
+def showHelp():
+    message = """usage:
+    python3 microfreezer.py <options> <path-to-project> <path-to-output-folder>
+or
+    python3 microfreezer.py <options> -s <path-to-project> -d <path-to-output-folder>
+
+Options and arguments:
+-h, --help          : print this help message
+-v, --verbose       : enable verbose logging messages
+-c, --config        : explicitly specify configuration file path, if omitted "./config.json" will be used
+-s, --source        : the path to the source directory of the project
+-d, --destination   : the path to the destination folder where all the generated files will be placed
+--ota-package       : generate OTA package instead, if omitted it will generate the files needed for micropython freezing
+"""
+    logging.error(message)
+    quit()
+
 if __name__ == '__main__':
     from sys import argv
 
-    Config.setupLogging(argv)
+    argumentList = sys.argv[1:]
+    options = "hvc:s:d:"
+    long_options = ["help", "verbose", "config=", "ota-package", "source=", "destination="]
+    config_file = None
+    is_ota_package = False
+    is_verbose = False
+    sourceDir = None
+    destDir = None
 
-    if len(argv) < 3 or "-h" in argv or "--help" in argv:
-        logging.error("Aborting: no proper args")
-        logging.error("    python3 microfreezer.py <path-to-project> <path-to-output-folder>")
-        quit()
+    try:
+        arguments, values = getopt.getopt(argumentList, options, long_options)
 
-    sourceDir = argv[-2]
-    destDir = argv[-1]
+        sourceDir = argv[-2]
+        destDir = argv[-1]
+
+        for currentArgument, currentValue in arguments:
+            if currentArgument in ("-c", "--config"):
+                config_file = str(currentValue)
+            elif currentArgument == "--ota-package":
+                is_ota_package = True
+            elif currentArgument in ("-v", "--verbose"):
+                is_verbose = True
+            elif currentArgument in ("-s", "--source"):
+                sourceDir = str(currentValue)
+            elif currentArgument in ("-d", "--destination"):
+                destDir = str(currentValue)
+            elif currentArgument in ("-h", "--help"):
+                showHelp()
+
+            if (not sourceDir or not destDir) and len(argv) >= 3:
+                sourceDir = argv[-2]
+                destDir = argv[-1]
+            elif len(argv) < 3:
+                raise getopt.error("not enough arguments provided")
+
+    except getopt.error as err:
+        # output error, and return with an error code
+        logging.error(str(err))
+        showHelp()
+
+    Config.setupLogging(is_verbose)
+    logging.info("using config file:" + str(config_file) if config_file else "default")
+    config_obj = Config(config_file) if config_file is not None else Config()
 
     logging.debug("source: {}, destination: {}".format(sourceDir, destDir))
 
-    freezer = MicroFreezer()
+    freezer = MicroFreezer(config_obj)
 
-    if "--ota-package" in argv:
+    if is_ota_package:
         freezer.run_package(sourceDir, destDir)
     else:
         freezer.run(sourceDir, destDir)

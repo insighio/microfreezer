@@ -50,7 +50,8 @@ Putting these into a configuration file named `config.json`:
   "directoriesKeptInFrozen": ["lib"],
   "enableZlibCompression": true,
   "flashRootFolder": "/",
-  "minify": false,
+  "minify": true,
+  "minifyExcludeFolderList": ["~/path/to/folder/to/exclude/from/minify"],
   "targetESP32": true,
   "targetPycom": false  
 }
@@ -63,6 +64,10 @@ Ready to run microfreezer. The `config.json` needs to be present at the same pat
 ```bash
 #python3 microfreezer.py (-v: verbose output) <project-folder-path> <output-folder-path>
 python3 microfreezer.py ~/projects/my_new_project ~/projects/my_new_project_packed
+
+#or
+
+python3 microfreezer.py -s ~/projects/my_new_project -d ~/projects/my_new_project_packed
 ```
 
 The output is split into two folders `Base` and `Custom` based on the directory design of Pycom devices:
@@ -114,6 +119,11 @@ Ready to run microfreezer. The `config.json` needs to be present at the same pat
 ```bash
 #python3 microfreezer.py (-v: verbose output) <project-folder-path> <output-folder-path>
 python3 microfreezer.py --ota-package ~/projects/my_new_project ~/projects/my_new_project_packed
+
+#or
+
+python3 microfreezer.py --ota-package -s ~/projects/my_new_project -d ~/projects/my_new_project_packed
+
 ```
 
 The output folder now contains 2 files:
