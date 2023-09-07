@@ -205,42 +205,48 @@ class MicroFreezer:
     def processFiles(self, currentPath=""):
         absoluteCurrentPath = join(self.baseSourceDir, currentPath)
 
-        for f in listdir(absoluteCurrentPath):
-            if f in self.excludeList:
-                logging.debug("ignoring file: {}".format(f))
-                continue
-            absoluteSourceDir = join(absoluteCurrentPath, f)
+        try:
+            for f in listdir(absoluteCurrentPath):
+                if f in self.excludeList:
+                    logging.debug("ignoring file: {}".format(f))
+                    continue
+                absoluteSourceDir = join(absoluteCurrentPath, f)
 
-            if isfile(absoluteSourceDir):
-                logging.debug("File: " + str(absoluteSourceDir))
-                self.convertFileToBase64(absoluteSourceDir, join(currentPath, f))
-            else:
-                logging.debug("Dir:  " + str(absoluteSourceDir))
-
-                if f in self.directoriesKeptInFrozen:
-                    self.copyRecursive(absoluteSourceDir, self.baseDestDirCustom)
+                if isfile(absoluteSourceDir):
+                    logging.debug("File: " + str(absoluteSourceDir))
+                    self.convertFileToBase64(absoluteSourceDir, join(currentPath, f))
                 else:
-                    self.processFiles(join(currentPath, f))
+                    logging.debug("Dir:  " + str(absoluteSourceDir))
+
+                    if f in self.directoriesKeptInFrozen:
+                        self.copyRecursive(absoluteSourceDir, self.baseDestDirCustom)
+                    else:
+                        self.processFiles(join(currentPath, f))
+        except Exception as e:
+            logging.exception(e, "processFiles: Error processing file")
 
     def copyRecursive(self, sourceDir, destDir, ignoreFrozenDirectories=False):
-        for f in listdir(sourceDir):
-            if f in self.excludeList:
-                logging.debug("ignoring file: {}".format(f))
-                continue
+        try:
+            for f in listdir(sourceDir):
+                if f in self.excludeList:
+                    logging.debug("ignoring file: {}".format(f))
+                    continue
 
-            absoluteSourceDir = join(sourceDir, f)
-            absoluteDestDir = join(destDir, f)
-            if isfile(absoluteSourceDir):
-                if self.minify and absoluteSourceDir.endswith(".py") and not isAnySubstringInString(self.minifyExcludeFolderList, absoluteSourceDir):
-                    logging.debug("file [M]: " + str(absoluteSourceDir))
-                    self.minifyAndReplaceFile(absoluteSourceDir, absoluteDestDir)
-                else:
-                    logging.debug("file: " + str(absoluteSourceDir))
-                    copyfile(absoluteSourceDir, absoluteDestDir)
-            elif not ignoreFrozenDirectories or f not in self.directoriesKeptInFrozen:
-                logging.debug("dir:  " + str(absoluteSourceDir))
-                mkdir(absoluteDestDir)
-                self.copyRecursive(absoluteSourceDir, absoluteDestDir)
+                absoluteSourceDir = join(sourceDir, f)
+                absoluteDestDir = join(destDir, f)
+                if isfile(absoluteSourceDir):
+                    if self.minify and absoluteSourceDir.endswith(".py") and not isAnySubstringInString(self.minifyExcludeFolderList, absoluteSourceDir):
+                        logging.debug("file [M]: " + str(absoluteSourceDir))
+                        self.minifyAndReplaceFile(absoluteSourceDir, absoluteDestDir)
+                    else:
+                        logging.debug("file: " + str(absoluteSourceDir))
+                        copyfile(absoluteSourceDir, absoluteDestDir)
+                elif not ignoreFrozenDirectories or f not in self.directoriesKeptInFrozen:
+                    logging.debug("dir:  " + str(absoluteSourceDir))
+                    mkdir(absoluteDestDir)
+                    self.copyRecursive(absoluteSourceDir, absoluteDestDir)
+        except Exception as e:
+            logging.exception(e, "copyRecursive: Error processing file")
 
     def finalize(self):
         # create md5sum file for package identification
