@@ -31,6 +31,7 @@ from functools import partial
 from aux_files.config import Config
 import getopt, sys
 
+
 def mkdir(dirPath):
     try:
         logging.debug("Making directory: {}".format(dirPath))
@@ -77,11 +78,11 @@ def removeFile(directoryPath):
 def md5folder(directoryPath, blocksize=65536):
     hash = hashlib.md5()
     logging.info("[md5sum]: Starting calculation of md5sum of folder: " + directoryPath)
-    for (directory, _, files) in os.walk(directoryPath):
+    for directory, _, files in os.walk(directoryPath):
         for f in files:
             path = join(directory, f)
             with open(path, "rb") as tmpF:
-                for block in iter(partial(tmpF.read, blocksize), b''):
+                for block in iter(partial(tmpF.read, blocksize), b""):
                     hash.update(block)
     return hash.hexdigest()
 
@@ -93,6 +94,7 @@ def removeContents(directoryBaseDir, directoryContents):
             removeFile(path)
         else:
             rmtree(path)
+
 
 def isAnySubstringInString(substring_list, string):
     for substr in substring_list:
@@ -160,42 +162,49 @@ class MicroFreezer:
         import python_minifier
 
         with open(sourceFile) as f:
-            contents = python_minifier.minify(f.read(),
-                                                remove_annotations=True,
-                                                remove_pass=False,
-                                                remove_literal_statements=True,
-                                                combine_imports=True,
-                                                hoist_literals=True,
-                                                rename_locals=True,
-                                                preserve_locals=None,
-                                                rename_globals=False,
-                                                preserve_globals=None,
-                                                remove_object_base=False,
-                                                convert_posargs_to_args=False,
-                                                preserve_shebang=True)
-        with open(destFile,"w") as fp:
-             fp.writelines(contents)
+            contents = python_minifier.minify(
+                f.read(),
+                remove_annotations=True,
+                remove_pass=False,
+                remove_literal_statements=True,
+                combine_imports=True,
+                hoist_literals=True,
+                rename_locals=True,
+                preserve_locals=None,
+                rename_globals=False,
+                preserve_globals=None,
+                remove_object_base=False,
+                convert_posargs_to_args=False,
+                preserve_shebang=True,
+            )
+        with open(destFile, "w") as fp:
+            fp.writelines(contents)
 
     def convertFileToBase64(self, sourceFile, destFile):
-        logging.debug("  [C]: " + str(sourceFile))
         tmp_file = None
-        if self.minify and sourceFile.endswith(".py") and '/templ/' not in sourceFile:
+        if self.minify and sourceFile.endswith(".py") and not isAnySubstringInString(self.minifyExcludeFolderList, sourceFile):
             import uuid
-            tmp_file = '/tmp/' + str(uuid.uuid1()) + ".py"
+
+            tmp_file = "/tmp/" + str(uuid.uuid1()) + ".py"
+            logging.debug("  [M]: " + str(sourceFile))
             self.minifyAndReplaceFile(sourceFile, tmp_file)
             sourceFile = tmp_file
+
+        logging.debug("  [C]: " + str(sourceFile))
 
         bytes = readFromFile(sourceFile, True)
 
         if self.minify and tmp_file is not None:
             try:
                 import os
-                #os.remove(tmp_file)
+
+                # os.remove(tmp_file)
             except Exception as e:
                 logging.exception(e, "Error deleting file [{}]".format(tmp_file))
 
         if self.enableZlibCompression:
             import zlib
+
             bytes = zlib.compress(bytes, 4)
         newFileName = join(self.defrostFolderPath, "base64_" + str(self.convertedFileNumber) + ".py")
         self.convertedFileNumber += 1
@@ -235,7 +244,11 @@ class MicroFreezer:
                 absoluteSourceDir = join(sourceDir, f)
                 absoluteDestDir = join(destDir, f)
                 if isfile(absoluteSourceDir):
-                    if self.minify and absoluteSourceDir.endswith(".py") and not isAnySubstringInString(self.minifyExcludeFolderList, absoluteSourceDir):
+                    if (
+                        self.minify
+                        and absoluteSourceDir.endswith(".py")
+                        and not isAnySubstringInString(self.minifyExcludeFolderList, absoluteSourceDir)
+                    ):
                         logging.debug("file [M]: " + str(absoluteSourceDir))
                         self.minifyAndReplaceFile(absoluteSourceDir, absoluteDestDir)
                     else:
@@ -258,11 +271,11 @@ class MicroFreezer:
         microwave_file = "microwave.py"
         target_file = join(self.defrostFolderPath, microwave_file)
         fileContents = readFromFile(join("aux_files", microwave_file))
-        fileContents = fileContents.replace('/flash/package.md5', join(self.flashRootFolder, 'package.md5'))
+        fileContents = fileContents.replace("/flash/package.md5", join(self.flashRootFolder, "package.md5"))
 
         # default: zlib enabled
         if not self.enableZlibCompression:
-            fileContents = fileContents.replace('enableZlibCompression = True', 'enableZlibCompression = False')
+            fileContents = fileContents.replace("enableZlibCompression = True", "enableZlibCompression = False")
 
         writeToFile(target_file, fileContents)
 
@@ -271,7 +284,7 @@ class MicroFreezer:
         main_file = "_append_to_boot.py"
         target_file = join(self.baseDestDir, main_file)
         fileContents = readFromFile(join("aux_files", main_file))
-        fileContents = fileContents.replace('/flash/package.md5', join(self.flashRootFolder, 'package.md5'))
+        fileContents = fileContents.replace("/flash/package.md5", join(self.flashRootFolder, "package.md5"))
         writeToFile(target_file, fileContents)
 
     def finalize_package(self):
@@ -290,6 +303,7 @@ class MicroFreezer:
 
     def createTarFile(self, file_name, path):
         import tarfile
+
         cwd = os.getcwd()
         os.chdir(path)
         tar_file_name = "{}.tar".format(file_name)
@@ -307,17 +321,19 @@ class MicroFreezer:
             try:
                 # try to compress file
                 import zlib
+
                 logging.debug("compressing file...")
                 bytes = zlib.compress(readFromFile(tar_file_name, True), 4)
-                crc = zlib.crc32(bytes) & 0xffffffff
+                crc = zlib.crc32(bytes) & 0xFFFFFFFF
                 # zlib 8 header bytes + data + crc 4 bytes
-                bytes = b'\x1f\x8b\x08\x00\x00\x00\x00\x00' + bytes + crc.to_bytes(length=4, byteorder='big')
+                bytes = b"\x1f\x8b\x08\x00\x00\x00\x00\x00" + bytes + crc.to_bytes(length=4, byteorder="big")
                 if writeToFile("{}.gz".format(tar_file_name), bytes, True):
                     removeFile(tar_file_name)
             except Exception as e:
                 logging.debug("Error comressing tar file {}.".format(tar_file_name))
                 traceback.print_exc()
         os.chdir(cwd)
+
 
 def showHelp():
     message = """usage:
@@ -336,7 +352,8 @@ Options and arguments:
     logging.error(message)
     quit()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     from sys import argv
 
     argumentList = sys.argv[1:]
